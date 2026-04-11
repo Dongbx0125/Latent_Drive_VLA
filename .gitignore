@@ -229,6 +229,10 @@ temp/*
 
 tmp
 
+tmp/*.json
+tmp/**/*.json
+tmp/sharegpt4v_coco.json
+
 
 **/*.pt
 **/*.mp4

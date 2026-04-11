@@ -1,0 +1,110 @@
+# SimplerEnv + Qwen3-VL-GR00T 一次推理测试命令清单
+# 仓库根目录：/code/starVLA
+# 说明：按顺序执行；涉及“终端A/终端B”的命令需要并行运行。
+
+############################
+# 0) 进入仓库
+############################
+cd /code/starVLA
+
+############################
+# 1) 准备 starVLA 环境（如已安装可跳过）
+############################
+conda create -n starVLA python=3.10 -y
+conda activate starVLA
+pip install -r requirements.txt
+pip install flash-attn --no-build-isolation
+pip install -e .
+
+############################
+# 2) 准备 simpler_env 环境（先按官方 SimplerEnv 文档完成基础安装）
+############################
+conda activate simpler_env
+pip install tyro matplotlib mediapy websockets msgpack
+pip install numpy==1.24.4
+
+############################
+# 3) （推荐）用 ModelScope 下载 Qwen 基座模型
+############################
+conda activate starVLA
+pip install -U modelscope
+mkdir -p /code/starVLA/playground/Pretrained_models
+modelscope download --model Qwen/Qwen3-VL-4B-Instruct --local_dir /code/starVLA/playground/Pretrained_models/Qwen3-VL-4B-Instruct
+
+############################
+# 4) 下载 StarVLA 的 Qwen3VL-GR00T checkpoint
+#    若你在 ModelScope 已有对应仓库，可直接用 modelscope download。
+#    这里给出 Hugging Face 下载方式（官方 README 指向 HF）。
+############################
+conda activate starVLA
+pip install -U "huggingface_hub[cli]"
+mkdir -p /code/starVLA/playground/Checkpoints/Qwen3VL-GR00T-Bridge-RT-1
+huggingface-cli download StarVLA/Qwen3VL-GR00T-Bridge-RT-1 --local-dir /code/starVLA/playground/Checkpoints/Qwen3VL-GR00T-Bridge-RT-1
+
+# 定位推理服务所需 .pt 文件
+find /code/starVLA/playground/Checkpoints/Qwen3VL-GR00T-Bridge-RT-1 -name "*pytorch_model.pt"
+
+############################
+# 5) 可选：快速检查模型框架
+############################
+conda activate starVLA
+cd /code/starVLA
+export PYTHONPATH=/code/starVLA:${PYTHONPATH}
+python starVLA/model/framework/VLM4A/QwenGR00T.py
+
+############################
+# 6) 可选：验证 simpler_env 安装（在 simpler_env 环境）
+############################
+conda activate simpler_env
+cd /code/starVLA
+export PYTHONPATH=/code/starVLA:${PYTHONPATH}
+python examples/SimplerEnv/eval_files/test_your_simplerEnv.py
+
+############################
+# 7) 正式推理测试（需要两个终端并行）
+############################
+conda init policy server（starVLA 环境） =====
+conda activate starVLA
+cd /code/starVLA
+export PYTHONPATH=/code/starVLA:${PYTHONPATH}
+export CKPT_PATH=/code/starVLA/playground/Checkpoints/Qwen3VL-GR00T-Bridge-RT-1/checkpoints/steps_20000_pytorch_model.pt
+export PORT=6678
+CUDA_VISIBLE_DEVICES=0 python deployment/model_server/server_policy.py \
+  --ckpt_path ${CKPT_PATH} \
+  --port ${PORT} \
+  --use_bf16
+
+# ===== 终端B：启动 SimplerEnv 单任务评测（simpler_env 环境） =====
+# 将 SIMPLERENV_REPO 改成你本地 SimplerEnv 仓库根目录
+conda activate simpler_env
+cd /code/starVLA
+export PYTHONPATH=/code/starVLA:${PYTHONPATH}
+export SIMPLERENV_REPO=/path/to/SimplerEnv
+export CKPT_PATH=/code/starVLA/playground/Checkpoints/Qwen3VL-GR00T-Bridge-RT-1/final_model/pytorch_model.pt
+export PORT=6678
+
+python examples/SimplerEnv/eval_files/start_simpler_env.py \
+  --ckpt-path ${CKPT_PATH} \
+  --port ${PORT} \
+  --robot widowx_sink_camera_setup \
+  --policy-setup widowx_bridge \
+  --control-freq 5 \
+  --sim-freq 500 \
+  --max-episode-steps 120 \
+  --env-name PutEggplantInBasketScene-v0 \
+  --scene-name bridge_table_1_v2 \
+  --rgb-overlay-path ${SIMPLERENV_REPO}/ManiSkill2_real2sim/data/real_inpainting/bridge_sink.png \
+  --robot-init-x-range 0.127 0.127 1 \
+  --robot-init-y-range 0.06 0.06 1 \
+  --obj-variation-mode episode \
+  --obj-episode-range 0 1 \
+  --robot-init-rot-quat-center 0 0 0 1 \
+  --robot-init-rot-rpy-range 0 0 1 0 0 1 0 0 1
+
+############################
+# 8) 常见故障排查
+############################
+# 若报错：NotImplementedError: Framework QwenGR00T is not implemented
+conda activate starVLA
+cd /code/starVLA
+python starVLA/model/framework/QwenGR00T.py
