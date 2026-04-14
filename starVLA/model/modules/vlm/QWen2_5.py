@@ -2,6 +2,7 @@
 # Licensed under the MIT License, Version 1.0 (the "License");
 # Implemented by [Jinhui YE / HKUST University] in [2025].
 
+from pathlib import Path
 from typing import List, Optional
 
 import torch
@@ -25,6 +26,31 @@ _ACTION_TOKEN_MAX = (
 
 
 import torch.nn as nn
+
+
+def _resolve_model_source(model_id: str) -> str:
+    """Resolve local model paths robustly before passing to HF loaders."""
+    raw = str(model_id).strip()
+    candidate = Path(raw).expanduser()
+
+    # Absolute/relative filesystem path: resolve to an existing absolute path.
+    if raw.startswith(("/", "./", "../", "~")) or candidate.exists():
+        if candidate.exists():
+            return str(candidate.resolve())
+
+        project_root = Path(__file__).resolve().parents[4]
+        project_candidate = (project_root / raw).expanduser()
+        if project_candidate.exists():
+            return str(project_candidate.resolve())
+
+        raise FileNotFoundError(
+            "Configured local VLM path does not exist. "
+            f"Checked: '{candidate}' and '{project_candidate}'. "
+            "Please verify `framework.qwenvl.base_vlm`."
+        )
+
+    # Otherwise treat as HuggingFace repo id (e.g. Qwen/Qwen2.5-VL-3B-Instruct).
+    return raw
 
 
 class _QWen_VL_Interface(nn.Module):
@@ -78,6 +104,7 @@ class _QWen_VL_Interface(nn.Module):
 
         qwenvl_config = config.framework.get("qwenvl", {})
         model_id = qwenvl_config.get("base_vlm", "Qwen/Qwen2.5-VL-3B-Instruct")
+        model_source = _resolve_model_source(model_id)
         attn_implementation = qwenvl_config.get("attn_implementation", "sdpa")
 
         # Fallback to sdpa if flash_attention_2 is requested but flash_attn is not installed
@@ -89,11 +116,11 @@ class _QWen_VL_Interface(nn.Module):
                 attn_implementation = "sdpa"
 
         model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            model_id,
+            model_source,
             attn_implementation=attn_implementation,
-            torch_dtype="auto",
+            dtype="auto",
         )
-        processor = AutoProcessor.from_pretrained(model_id)
+        processor = AutoProcessor.from_pretrained(model_source)
         processor.tokenizer.padding_side = "left"
 
         self.model = model

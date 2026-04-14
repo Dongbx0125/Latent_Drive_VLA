@@ -23,6 +23,57 @@ logger = initialize_overwatch(__name__)
 _FRAMEWORKS_IMPORTED = False
 
 
+def _get_nested(config_dict: dict, keys: list[str]) -> Any:
+    cur = config_dict
+    for key in keys:
+        if not isinstance(cur, dict) or key not in cur:
+            return None
+        cur = cur[key]
+    return cur
+
+
+def _set_nested(config_dict: dict, keys: list[str], value: Any) -> None:
+    cur = config_dict
+    for key in keys[:-1]:
+        if key not in cur or not isinstance(cur[key], dict):
+            cur[key] = {}
+        cur = cur[key]
+    cur[keys[-1]] = value
+
+
+def _resolve_stale_local_path(path_value: Any) -> Any:
+    if not isinstance(path_value, str):
+        return path_value
+    p = Path(path_value)
+    if not p.is_absolute() or p.exists():
+        return path_value
+
+    # Checkpoint configs may contain absolute paths from another machine.
+    # If missing, try local workspace canonical model cache path.
+    fallback = Path.cwd() / "playground" / "Pretrained_models" / p.name
+    if fallback.exists():
+        logger.warning("Model path `%s` not found, fallback to `%s`", path_value, str(fallback))
+        return str(fallback)
+    return path_value
+
+
+def _normalize_model_source_paths(model_config: dict, base_vlm_override: str | None = None) -> dict:
+    cfg = model_config
+    if base_vlm_override:
+        _set_nested(cfg, ["framework", "qwenvl", "base_vlm"], base_vlm_override)
+        logger.info("Override framework.qwenvl.base_vlm => %s", base_vlm_override)
+
+    for path_keys in (
+        ["framework", "qwenvl", "base_vlm"],
+        ["framework", "world_model", "base_wm"],
+    ):
+        original = _get_nested(cfg, path_keys)
+        resolved = _resolve_stale_local_path(original)
+        if resolved != original:
+            _set_nested(cfg, path_keys, resolved)
+    return cfg
+
+
 def _auto_import_framework_modules() -> None:
     global _FRAMEWORKS_IMPORTED
     if _FRAMEWORKS_IMPORTED:
@@ -231,6 +282,8 @@ class baseframework(PreTrainedModel):
         """
         pretrained_checkpoint = Path(pretrained_checkpoint)
         model_config, norm_stats = read_mode_config(pretrained_checkpoint)  # read config and norm_stats
+        base_vlm_override = kwargs.pop("base_vlm", None)
+        model_config = _normalize_model_source_paths(model_config, base_vlm_override=base_vlm_override)
 
         config = dict_to_namespace(model_config)
         model_config = config
@@ -266,4 +319,3 @@ class baseframework(PreTrainedModel):
         # **ensure model is on GPU**
         FrameworkModel = FrameworkModel
         return FrameworkModel
-

@@ -277,7 +277,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config_yaml",
         type=str,
-        default="./examples/Robotwin/train_files/starvla_cotrain_robotwin.yaml",
+        default="./examples/Robotwin/train_files/starvla_cotrain_robotwin_abs.yaml",
         help="Path to YAML config",
     )
     args, clipargs = parser.parse_known_args()
@@ -292,6 +292,19 @@ if __name__ == "__main__":
 
     # args.config_yaml = "examples/MultiRobot/train_files/starvla_cotrain_multiRobot.yaml"
     cfg = OmegaConf.load(args.config_yaml)
+    # If configured local Qwen path is missing, auto-fallback to local Qwen3 if available.
+    configured_base_vlm = str(cfg.framework.qwenvl.get("base_vlm", "")).strip()
+    qwen3_local = Path("./playground/Pretrained_models/Qwen3-VL-4B-Instruct")
+    repo_root = Path(__file__).resolve().parents[4]
+    configured_local = Path(configured_base_vlm).expanduser()
+    configured_repo_local = (repo_root / configured_base_vlm).expanduser()
+    is_local_path = configured_base_vlm.startswith(("/", "./", "../", "~")) or configured_local.exists()
+    if is_local_path and (not configured_local.exists()) and (not configured_repo_local.exists()) and qwen3_local.exists():
+        print(
+            f"[WARNING] base_vlm '{configured_base_vlm}' not found. "
+            f"Fallback to '{qwen3_local}'."
+        )
+        cfg.framework.qwenvl.base_vlm = str(qwen3_local)
     # try get model
     # cfg.framework.action_model.action_hidden_dim = 2048
 
@@ -303,8 +316,9 @@ if __name__ == "__main__":
     # fake sample
     image = Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8))
     # Create a sample
+    action_dim = int(cfg.framework.action_model.action_dim)
     sample = {
-        "action": np.random.uniform(-1, 1, size=(16, 7)).astype(np.float16),  # action_chunk, action_dim
+        "action": np.random.uniform(-1, 1, size=(16, action_dim)).astype(np.float16),  # action_chunk, action_dim
         "image": [image],  # three views
         "lang": (
             "Put all the toys in the child's room - the three board games (two on the bed and one on the table), the two jigsaw puzzles on the table, and the tennis ball on the table - inside the toy box on the table in the child's room."
@@ -312,7 +326,7 @@ if __name__ == "__main__":
         # "state" : np.random.uniform(-1, 1, size=(1, 7)).astype(np.float16), # chunk, state_dim
     }
     sample2 = {
-        "action": np.random.uniform(-1, 1, size=(16, 7)).astype(np.float16),  # action_chunk, action_dim
+        "action": np.random.uniform(-1, 1, size=(16, action_dim)).astype(np.float16),  # action_chunk, action_dim
         "image": [image],  # three views
         "lang": (
             "Put all the toys in the child's room - the three board games (two on the bed and one on the table), the two jigsaw puzzles on the table, and the tennis ball on the table - inside the toy box on the table in the child's room."

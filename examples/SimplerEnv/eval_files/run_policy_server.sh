@@ -8,7 +8,7 @@ gpu_id=2
 # export DEBUG=true
 export star_vla_python=/mnt/petrelfs/share/yejinhui/Envs/miniconda3/envs/starVLA/bin/python
 
-your_ckpt=./results/Checkpoints/1208_bridge_rt_1_Qwen3PI/final_model/pytorch_model.pt
+your_ckpt=/code/starVLA/playground/Checkpoints/Qwen3VL-GR00T-Bridge-RT-1/checkpoints/steps_20000_pytorch_model.pt
 
 #### build output directory #####
 ckpt_dir=$(dirname "${your_ckpt}")
