@@ -45,8 +45,8 @@ accelerate launch \
   --trainer.eval_interval 100 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
-  --wandb_project starVLA \
-  --wandb_entity jinhuiye \
+  --swanlab_project starVLA \
+  --swanlab_workspace jinhuiye \
   # --is_debug True
 
 
@@ -67,6 +67,6 @@ accelerate launch \
 #   --framework.qwenvl.base_vlm microsoft/Florence-2-large \
 #   --run_root_dir ${run_root_dir} \
 #   --run_id ${run_id} \
-#   --wandb_project your_project \
-#   --wandb_entity your_name
+#   --swanlab_project your_project \
+#   --swanlab_workspace your_name
 

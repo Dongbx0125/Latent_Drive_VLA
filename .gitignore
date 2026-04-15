@@ -137,7 +137,7 @@ dmypy.json
 
 # Auth Tokens / Hidden Files
 .hf_token
-.wandb_api_key
+.swanlab_api_key
 .*_token
 .*api_key
 

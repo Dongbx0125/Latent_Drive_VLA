@@ -88,8 +88,8 @@ accelerate launch \
   --trainer.logging_frequency 2 \
   --run_root_dir ./tmp/smoke_test_output \
   --run_id test_vla_only \
-  --wandb_project test \
-  --wandb_entity test
+  --swanlab_project test \
+  --swanlab_workspace test
 "
 
 echo ""
@@ -128,8 +128,8 @@ accelerate launch \
   --trainer.logging_frequency 2 \
   --run_root_dir ./tmp/smoke_test_output \
   --run_id test_cotrain \
-  --wandb_project test \
-  --wandb_entity test
+  --swanlab_project test \
+  --swanlab_workspace test
 "
 
 echo ""

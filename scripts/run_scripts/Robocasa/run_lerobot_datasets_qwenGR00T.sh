@@ -24,7 +24,7 @@ data_mix=fourier_gr1_unified_1000
 run_root_dir=./playground/Checkpoints
 run_id=starvla_qwenGR00T_fourier_gr1_unified_1000_withState
 
-export WANDB_MODE=disabled
+export SWANLAB_MODE=disabled
 
 output_dir=${run_root_dir}/${run_id}
 mkdir -p ${output_dir}
@@ -50,8 +50,7 @@ accelerate launch \
   --trainer.learning_rate.base 4e-5 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
-  --wandb_project starVLA \
-  --wandb_entity ailab-manipulation \
+  --swanlab_project starVLA \
+  --swanlab_workspace ailab-manipulation \
   --is_debug True
-
 

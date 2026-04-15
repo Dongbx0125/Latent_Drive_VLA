@@ -26,7 +26,6 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed as dist
-import wandb
 from accelerate import Accelerator, DeepSpeedPlugin
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
@@ -39,6 +38,7 @@ from starVLA.dataloader import build_dataloader_manager
 from starVLA.dataloader.dataloader_manager import DataLoaderManager
 from starVLA.model.framework.base_framework import build_framework
 from starVLA.training.trainer_utils.config_tracker import AccessTrackedConfig, wrap_config
+from starVLA.training.trainer_utils import wb_compat as swanlab
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils, build_param_lr_groups, normalize_dotlist_args
 
 deepspeed_plugin = DeepSpeedPlugin()
@@ -173,7 +173,7 @@ class UnifiedTrainer(TrainerUtils):
         for i, name in enumerate(dl_names):
             self.data_manager.dataloaders[name] = prepared[2 + i]
 
-        self._init_wandb()
+        self._init_swanlab()
 
     def _calculate_total_batch_size(self):
         """Calculate global batch size from the first compatible dataset."""
@@ -261,18 +261,18 @@ class UnifiedTrainer(TrainerUtils):
         self.accelerator.wait_for_everyone()
 
     # ------------------------------------------------------------------
-    # WandB
+    # SwanLab
     # ------------------------------------------------------------------
 
-    def _init_wandb(self):
-        """Initialize Weights & Biases."""
+    def _init_swanlab(self):
+        """Initialize SwanLab."""
         if self.accelerator.is_main_process:
             mode_tag = "+".join(self.data_manager.names)  # e.g. "vla+vlm"
-            wandb.init(
+            swanlab.init(
                 name=self.config.run_id,
-                dir=os.path.join(self.config.output_dir, "wandb"),
-                project=self.config.wandb_project,
-                entity=self.config.wandb_entity,
+                dir=os.path.join(self.config.output_dir, "swanlab"),
+                project=self.config.swanlab_project,
+                entity=self.config.swanlab_workspace,
                 group=f"unified-{mode_tag}",
             )
 
@@ -291,7 +291,7 @@ class UnifiedTrainer(TrainerUtils):
                     if hasattr(dl, "__len__") and len(dl):
                         metrics["epoch"] = round(self.completed_steps / len(dl), 2)
                         break
-                wandb.log(metrics, step=self.completed_steps)
+                swanlab.log(metrics, step=self.completed_steps)
                 logger.info(f"Step {self.completed_steps}, Loss: {metrics})")
 
     def _log_training_config(self):
@@ -425,7 +425,7 @@ class UnifiedTrainer(TrainerUtils):
             logger.info(f"Training complete. Final model saved at {final_checkpoint}")
 
         if self.accelerator.is_main_process:
-            wandb.finish()
+            swanlab.finish()
 
         self.accelerator.wait_for_everyone()
 

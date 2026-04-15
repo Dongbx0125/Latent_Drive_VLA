@@ -22,7 +22,7 @@ run_id=1229_libero4in1_qwen3oft
 ###########################################################################################
 
 
-# export WANDB_MODE=disabled
+# export SWANLAB_MODE=disabled
 
 output_dir=${run_root_dir}/${run_id}
 mkdir -p ${output_dir}
@@ -48,8 +48,8 @@ accelerate launch \
   --trainer.eval_interval 100 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id} \
-  --wandb_project starVLA_Libero \
-  --wandb_entity jinhuiye \
+  --swanlab_project starVLA_Libero \
+  --swanlab_workspace Kurome \
   # --is_debug True
 
 
@@ -68,6 +68,6 @@ accelerate launch \
   #   --framework.qwenvl.base_vlm ${base_vlm} \
   #   --run_root_dir ${run_root_dir} \
   #   --run_id ${run_id} \
-  #   --wandb_project your_project \
-  #   --wandb_entity your_name
+  #   --swanlab_project your_project \
+  #   --swanlab_workspace your_name
 ##### Multi-Server Multi-GPU training script #####

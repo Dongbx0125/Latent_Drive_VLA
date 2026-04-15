@@ -10,9 +10,9 @@ echo "=== Step 2: Install mujoco ==="
 pip install mujoco
 
 echo "=== Step 3: Clone and install LIBERO ==="
-LIBERO_DIR=/home/jye624/Projcets/LIBERO
+LIBERO_DIR=/code/LIBERO
 if [ ! -d "$LIBERO_DIR" ]; then
-    cd /home/jye624/Projcets
+    cd /code
     git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git
     cd LIBERO
 else

@@ -20,7 +20,6 @@ from typing import Tuple
 # Third-Party Libraries
 import torch
 import torch.distributed as dist
-import wandb
 from accelerate import Accelerator, DeepSpeedPlugin
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
@@ -33,6 +32,7 @@ from transformers import AutoProcessor, get_scheduler
 from starVLA.dataloader import build_dataloader
 from starVLA.model.framework.base_framework import build_framework
 from starVLA.training.trainer_utils.config_tracker import AccessTrackedConfig, wrap_config
+from starVLA.training.trainer_utils import wb_compat as swanlab
 from starVLA.training.trainer_utils.trainer_tools import TrainerUtils, build_param_lr_groups, normalize_dotlist_args
 
 deepspeed_plugin = DeepSpeedPlugin()
@@ -138,7 +138,7 @@ class VLAMTrainer(TrainerUtils):
             self.vlm_train_dataloader,
         )
 
-        self._init_wandb()
+        self._init_swanlab()
         self._init_checkpointing()
 
     def _calculate_total_batch_size(self):
@@ -146,14 +146,14 @@ class VLAMTrainer(TrainerUtils):
         per_device_bs = getattr(self.config.datasets.vlm_data, "per_device_batch_size", 1)
         return per_device_bs * self.accelerator.num_processes * self.accelerator.gradient_accumulation_steps
 
-    def _init_wandb(self):
-        """Initialize Weights & Biases."""
+    def _init_swanlab(self):
+        """Initialize SwanLab."""
         if self.accelerator.is_main_process:
-            wandb.init(
+            swanlab.init(
                 name=self.config.run_id,
-                dir=os.path.join(self.config.output_dir, "wandb"),
-                project=self.config.wandb_project,
-                entity=self.config.wandb_entity,
+                dir=os.path.join(self.config.output_dir, "swanlab"),
+                project=self.config.swanlab_project,
+                entity=self.config.swanlab_workspace,
                 group="vla-train",
             )
 
@@ -212,7 +212,7 @@ class VLAMTrainer(TrainerUtils):
                 dataloader_length = len(self.vlm_train_dataloader)
                 if dataloader_length:
                     metrics["epoch"] = round(self.completed_steps / dataloader_length, 2)
-            wandb.log(metrics, step=self.completed_steps)
+            swanlab.log(metrics, step=self.completed_steps)
             logger.info(f"Step {self.completed_steps}, Metrics: {metrics}")
 
     def _create_data_iterators(self):
@@ -318,7 +318,7 @@ class VLAMTrainer(TrainerUtils):
             logger.info(f"Training complete. Final model saved at {final_checkpoint}")
 
         if self.accelerator.is_main_process:
-            wandb.finish()
+            swanlab.finish()
 
         self.accelerator.wait_for_everyone()
 

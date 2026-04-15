@@ -1,9 +1,9 @@
 run_id: starvla_vla_arena
 run_root_dir: results/Checkpoints
 seed: 42
-trackers: [jsonl, wandb]
-wandb_entity: your_wandb_entity
-wandb_project: starVLA_VLA_Arena
+trackers: [jsonl, swanlab]
+swanlab_workspace: your_swanlab_workspace
+swanlab_project: starVLA_VLA_Arena
 is_debug: false
 
 
