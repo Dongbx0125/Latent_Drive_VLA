@@ -53,6 +53,15 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = get_logger(__name__)
 
 
+def _safe_dist_barrier():
+    if not dist.is_initialized():
+        return
+    if dist.get_backend() == "nccl" and torch.cuda.is_available():
+        dist.barrier(device_ids=[torch.cuda.current_device()])
+    else:
+        dist.barrier()
+
+
 def load_fast_tokenizer():
     return AutoProcessor.from_pretrained("physical-intelligence/fast", trust_remote_code=True)
 
@@ -80,7 +89,7 @@ def prepare_data(cfg, accelerator, output_dir) -> DataLoader:
     vla_train_dataloader = build_dataloader(cfg=cfg, dataset_py=cfg.datasets.vla_data.dataset_py)
 
     accelerator.dataloader_config.dispatch_batches = False
-    dist.barrier()
+    _safe_dist_barrier()
     return vla_train_dataloader
 
 
@@ -337,7 +346,7 @@ class VLATrainer(TrainerUtils):
             step_metrics["mse_score"] = score / num_pots
 
         del examples
-        dist.barrier()
+        _safe_dist_barrier()
         return step_metrics
 
     def _log_training_config(self):
@@ -425,8 +434,9 @@ def main(cfg) -> None:
     trainer.train()
 
     logger.info("... and that's all, folks!")
-    dist.barrier()
-    dist.destroy_process_group()
+    if dist.is_initialized():
+        _safe_dist_barrier()
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

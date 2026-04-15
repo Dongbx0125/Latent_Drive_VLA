@@ -52,6 +52,15 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = get_logger(__name__)
 
 
+def _safe_dist_barrier():
+    if not dist.is_initialized():
+        return
+    if dist.get_backend() == "nccl" and torch.cuda.is_available():
+        dist.barrier(device_ids=[torch.cuda.current_device()])
+    else:
+        dist.barrier()
+
+
 def load_fast_tokenizer():
     return AutoProcessor.from_pretrained("physical-intelligence/fast", trust_remote_code=True)
 
@@ -82,7 +91,7 @@ def prepare_data(cfg) -> DataLoaderManager:
     manager = build_dataloader_manager(cfg)
     accelerator.dataloader_config.dispatch_batches = False
     if dist.is_initialized():
-        dist.barrier()
+        _safe_dist_barrier()
     return manager
 
 
@@ -366,7 +375,7 @@ class UnifiedTrainer(TrainerUtils):
 
         del examples
         if dist.is_initialized():
-            dist.barrier()
+            _safe_dist_barrier()
         return step_metrics
 
     def train(self):
@@ -461,7 +470,7 @@ def main(cfg) -> None:
 
     logger.info("... and that's all, folks!")
     if dist.is_initialized():
-        dist.barrier()
+        _safe_dist_barrier()
         dist.destroy_process_group()
 
 

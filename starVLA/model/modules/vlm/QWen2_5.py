@@ -5,9 +5,11 @@
 from pathlib import Path
 from typing import List, Optional
 
+import numpy as np
 import torch
 from starVLA.training.trainer_utils import initialize_overwatch
 from qwen_vl_utils import process_vision_info
+from PIL import Image
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
@@ -268,11 +270,33 @@ class _QWen_VL_Interface(nn.Module):
 
         """
 
+        def _normalize_image_input(img):
+            # qwen_vl_utils expects PIL.Image / str / URL-like input.
+            if isinstance(img, Image.Image):
+                return img
+            if isinstance(img, str):
+                return img
+            if isinstance(img, np.ndarray):
+                arr = img
+                if arr.ndim == 3 and arr.shape[0] in (1, 3, 4) and arr.shape[-1] not in (1, 3, 4):
+                    arr = np.transpose(arr, (1, 2, 0))
+                if arr.dtype != np.uint8:
+                    arr = np.clip(arr, 0, 255).astype(np.uint8)
+                return Image.fromarray(arr)
+            if torch.is_tensor(img):
+                arr = img.detach().cpu().numpy()
+                if arr.ndim == 3 and arr.shape[0] in (1, 3, 4) and arr.shape[-1] not in (1, 3, 4):
+                    arr = np.transpose(arr, (1, 2, 0))
+                if arr.dtype != np.uint8:
+                    arr = np.clip(arr, 0, 255).astype(np.uint8)
+                return Image.fromarray(arr)
+            raise TypeError(f"Unsupported image type for Qwen input: {type(img)}")
+
         # Create messages: one message per sample
         messages = []
         assert len(images) == len(instructions), "Images and instructions must have the same length"
         for imgs, instruction in zip(images, instructions):
-            content = [{"type": "image", "image": img} for img in imgs]
+            content = [{"type": "image", "image": _normalize_image_input(img)} for img in imgs]
 
             if "CoT_prompt" in self.config.datasets.vla_data:  # If using a grounding prompt to task
                 CoT_prompt = self.config.datasets.vla_data.get("CoT_prompt", "")
